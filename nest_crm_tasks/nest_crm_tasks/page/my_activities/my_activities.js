@@ -33,8 +33,10 @@ class MyActivities {
 		this.$main = $('<div class="my-activities-page"></div>').appendTo(page.body);
 
 		// Persist filter choices across sessions
-		this.scope  = localStorage.getItem('nest.my_activities.scope')  || 'mine';   // 'mine' | 'all'
-		this.status = localStorage.getItem('nest.my_activities.status') || 'open';   // 'open' | 'closed' | 'any'
+		this.scope       = localStorage.getItem('nest.my_activities.scope')       || 'mine';   // 'mine' | 'all'
+		this.status      = localStorage.getItem('nest.my_activities.status')      || 'open';   // 'open' | 'closed' | 'any'
+		this.assigned_to = localStorage.getItem('nest.my_activities.assigned_to') || '';       // '' | <user>
+		this.due_before  = localStorage.getItem('nest.my_activities.due_before')  || '';       // '' | YYYY-MM-DD
 
 		this.setup_page_actions();
 		this.bind_events();
@@ -77,6 +79,48 @@ class MyActivities {
 			}
 		});
 
+		// Assigned To filter — User picker. When set, overrides the scope (mine/all)
+		// because the user has been explicit about whose tasks they want.
+		this.page.add_field({
+			fieldtype: 'Link', fieldname: 'assigned_to', label: 'Assigned To',
+			options: 'User', default: this.assigned_to,
+			change: function() {
+				me.assigned_to = this.value || '';
+				localStorage.setItem('nest.my_activities.assigned_to', me.assigned_to);
+				me.refresh();
+			}
+		});
+
+		// Due On/Before filter — Date picker. Applies as date <= chosen, so it shows
+		// overdue tasks + tasks due today + tasks due before that date. The default
+		// "no filter" state shows everything regardless of due date.
+		this.page.add_field({
+			fieldtype: 'Date', fieldname: 'due_before', label: 'Due On/Before',
+			default: this.due_before,
+			change: function() {
+				me.due_before = this.value || '';
+				localStorage.setItem('nest.my_activities.due_before', me.due_before);
+				me.refresh();
+			}
+		});
+
+		this.page.add_action_item('Clear filters', function() {
+			me.scope = 'all';
+			me.status = 'any';
+			me.assigned_to = '';
+			me.due_before = '';
+			localStorage.setItem('nest.my_activities.scope',       me.scope);
+			localStorage.setItem('nest.my_activities.status',      me.status);
+			localStorage.setItem('nest.my_activities.assigned_to', me.assigned_to);
+			localStorage.setItem('nest.my_activities.due_before',  me.due_before);
+			// Re-sync the page header field values
+			me.page.fields_dict.scope       && me.page.fields_dict.scope.set_value('all');
+			me.page.fields_dict.status      && me.page.fields_dict.status.set_value('any');
+			me.page.fields_dict.assigned_to && me.page.fields_dict.assigned_to.set_value('');
+			me.page.fields_dict.due_before  && me.page.fields_dict.due_before.set_value('');
+			me.refresh();
+		});
+
 		this.page.add_action_item('Standard ToDo List', function() {
 			frappe.set_route('List', 'ToDo');
 		});
@@ -106,7 +150,13 @@ class MyActivities {
 
 		this.$main.on('click', '.nest-complete-btn', function(e) {
 			e.stopPropagation();
-			me.set_status($(this).data('todo'), 'Closed', $(this));
+			var $btn = $(this);
+			var todo_name = $btn.data('todo');
+			// Confirm before closing — prevents accidental clicks on the icon-only button.
+			frappe.confirm(
+				'Mark this task as complete?',
+				function() { me.set_status(todo_name, 'Closed', $btn); }
+			);
 		});
 
 		this.$main.on('click', '.nest-reopen-btn', function(e) {
@@ -135,11 +185,22 @@ class MyActivities {
 
 	fetch_tasks() {
 		var filters = [];
-		if (this.scope === 'mine') {
+
+		// Explicit "Assigned To" filter takes precedence over the scope toggle.
+		if (this.assigned_to) {
+			filters.push(['allocated_to', '=', this.assigned_to]);
+		} else if (this.scope === 'mine') {
 			filters.push(['allocated_to', '=', frappe.session.user]);
 		}
+
 		if (this.status === 'open')   filters.push(['status', '=', 'Open']);
 		if (this.status === 'closed') filters.push(['status', '=', 'Closed']);
+
+		// Due-date cap: show every task with date <= chosen (so overdue + due-today
+		// + due-before-cap all appear). No cap = show everything.
+		if (this.due_before) {
+			filters.push(['date', '<=', this.due_before]);
+		}
 
 		return frappe.db.get_list('ToDo', {
 			filters: filters,

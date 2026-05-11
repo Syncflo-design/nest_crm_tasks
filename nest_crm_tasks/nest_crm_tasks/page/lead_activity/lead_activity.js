@@ -74,7 +74,13 @@ class LeadActivityHub {
 
 		this.$main.on('click', '.nest-complete-btn', function(e) {
 			e.stopPropagation();
-			me.mark_complete($(this).data('todo'), $(this));
+			var $btn = $(this);
+			var todo_name = $btn.data('todo');
+			// Confirm before closing — prevents accidental clicks on the icon-only button.
+			frappe.confirm(
+				'Mark this task as complete?',
+				function() { me.mark_complete(todo_name, $btn); }
+			);
 		});
 
 		this.$main.on('click', '.nest-reopen-btn', function(e) {
@@ -192,25 +198,32 @@ class LeadActivityHub {
 		};
 		var badge_color = status_color[lead.status] || 'grey';
 
-		// Build a single horizontal meta string. Everything inline, separated by bullets.
-		var meta_chunks = [];
-		if (lead.company_name) meta_chunks.push(esc(lead.company_name));
-		if (lead.territory)    meta_chunks.push(esc(lead.territory));
-		if (lead.industry)     meta_chunks.push(esc(lead.industry));
+		var sep = ' <span style="color:var(--border-color, #d1d8dd);">&bull;</span> ';
+
+		// Top-line meta: Company name (bold) • email • mobile (normal weight)
+		var top_chunks = [];
+		if (lead.company_name) top_chunks.push('<strong>' + esc(lead.company_name) + '</strong>');
 		if (lead.email_id) {
-			meta_chunks.push(
+			top_chunks.push(
 				'<a href="mailto:' + encodeURIComponent(lead.email_id) + '">'
 				+ esc(lead.email_id) + '</a>'
 			);
 		}
-		if (lead.phone)     meta_chunks.push(esc(lead.phone));
-		if (lead.mobile_no) meta_chunks.push(esc(lead.mobile_no));
-		if (lead.lead_owner) meta_chunks.push('<span style="color:var(--text-muted, #6c757d);">Owner:</span> <strong>' + esc(lead.lead_owner) + '</strong>');
-		if (lead.source)     meta_chunks.push('<span style="color:var(--text-muted, #6c757d);">Source:</span> <strong>' + esc(lead.source) + '</strong>');
+		// Mobile preferred; fall back to phone if mobile is empty.
+		var contact_number = lead.mobile_no || lead.phone;
+		if (contact_number) top_chunks.push(esc(contact_number));
+		var top_line = top_chunks.join(sep);
 
-		var meta_line = meta_chunks.join(' <span style="color:var(--border-color, #d1d8dd);">&bull;</span> ');
+		// Bottom-line meta: Territory • Industry • Owner • Source (normal, muted)
+		var bottom_chunks = [];
+		if (lead.territory)  bottom_chunks.push(esc(lead.territory));
+		if (lead.industry)   bottom_chunks.push(esc(lead.industry));
+		if (lead.lead_owner) bottom_chunks.push('Owner: ' + esc(lead.lead_owner));
+		if (lead.source)     bottom_chunks.push('Source: ' + esc(lead.source));
+		var bottom_line = bottom_chunks.join(sep);
 
-		// Compact one-line card: name + status + meta wrap on a single row, padding tightened.
+		var pipe = '<span style="color:var(--border-color, #d1d8dd);margin:0 4px;">|</span>';
+
 		var html = '<div class="nest-lead-card" style="'
 			+ 'background:var(--card-bg, #fff);'
 			+ 'border:1px solid var(--border-color, #d1d8dd);'
@@ -218,25 +231,25 @@ class LeadActivityHub {
 			+ 'border-radius:4px;'
 			+ 'padding:10px 14px;'
 			+ 'margin-bottom:12px;'
-			+ 'display:flex;'
-			+ 'align-items:center;'
-			+ 'gap:10px;'
-			+ 'flex-wrap:wrap;'
 			+ 'font-size:13px;'
-			+ 'line-height:1.4;'
+			+ 'line-height:1.5;'
 			+ '">'
 
-			+ '<h3 style="margin:0;font-size:15px;font-weight:600;white-space:nowrap;">'
+			// Top row: Lead Name | top_line
+			+ '<div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px;">'
+			+ '<span style="font-size:15px;font-weight:600;white-space:nowrap;">'
 			+ esc(lead.lead_name || this.lead_name)
-			+ '</h3>'
+			+ '</span>'
+			+ (top_line ? pipe + '<span style="min-width:0;">' + top_line + '</span>' : '')
+			+ '</div>'
+
+			// Bottom row: Status badge | bottom_line  (muted)
+			+ '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-top:4px;color:var(--text-muted, #6c757d);">'
 			+ '<span class="indicator-pill ' + badge_color + '" style="font-size:11px;">'
 			+ esc(lead.status || 'Unknown')
 			+ '</span>'
-
-			+ (meta_line
-				? '<span style="color:var(--border-color, #d1d8dd);">|</span>'
-				  + '<span style="flex:1;min-width:0;">' + meta_line + '</span>'
-				: '')
+			+ (bottom_line ? pipe + '<span style="min-width:0;">' + bottom_line + '</span>' : '')
+			+ '</div>'
 
 			+ '</div>';
 
