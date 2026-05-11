@@ -10,7 +10,11 @@
  "owner": "Administrator",
  "page_name": "lead-activity",
  "restrict_to_domain": "",
- "roles": [],
+ "roles": [
+  { "role": "Sales User" },
+  { "role": "Sales Manager" },
+  { "role": "System Manager" }
+ ],
  "script": null,
  "standard": "Yes",
  "style": null,
