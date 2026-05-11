@@ -46,9 +46,9 @@ class MyActivities {
 	setup_page_actions() {
 		var me = this;
 
-		this.page.set_primary_action('Add Task', function() {
+		this.page.set_primary_action('<i class="fa fa-plus" style="margin-right:6px;"></i>Add Task', function() {
 			me.open_new_task_dialog();
-		}, 'octicon octicon-plus');
+		});
 
 		// Scope toggle (My Tasks / All)
 		this.page.add_field({
@@ -222,6 +222,8 @@ class MyActivities {
 
 		var priority_color = { 'High': 'red', 'Medium': 'yellow', 'Low': 'grey' };
 		var status_color   = { 'Open': 'blue', 'Closed': 'green', 'Cancelled': 'grey' };
+		var priority_short = { 'High': 'H', 'Medium': 'M', 'Low': 'L' };
+		var status_short   = { 'Open': 'O', 'Closed': 'CL', 'Cancelled': 'CA' };
 
 		var open_count   = tasks.filter(function(t) { return t.status === 'Open'; }).length;
 		var lead_count   = tasks.filter(function(t) { return t.reference_type === 'Lead'; }).length;
@@ -262,17 +264,10 @@ class MyActivities {
 		var rows = tasks.map(function(t) {
 			var safe_name = esc(t.name);
 
-			// Description (strip HTML, truncate)
-			// frappe.utils.strip_html doesn't exist in v16 — use jQuery to extract text
-			var plain = t.description ? $('<div>').html(t.description).text() : '';
-			var desc = plain
-				? esc(plain.substring(0, 140)) + (plain.length > 140 ? '…' : '')
-				: '<em class="text-muted">No description</em>';
-
-			// Lead badge (or just the reference type for non-Lead refs)
-			var lead_cell = '';
+			// Reference label (top of first cell). Blue pill if Lead; plain muted if other ref.
+			var ref_label = '';
 			if (t.reference_type === 'Lead' && t.reference_name) {
-				lead_cell = '<a class="nest-lead-badge" data-lead="' + esc(t.reference_name) + '"'
+				ref_label = '<a class="nest-lead-badge" data-lead="' + esc(t.reference_name) + '"'
 					+ ' href="/app/lead-activity/' + encodeURIComponent(t.reference_name) + '"'
 					+ ' title="Open Lead Activity Hub for ' + esc(t.reference_name) + '"'
 					+ ' style="' + badge_style + '">'
@@ -280,23 +275,35 @@ class MyActivities {
 					+ esc(t.reference_name)
 					+ '</a>';
 			} else if (t.reference_type && t.reference_name) {
-				lead_cell = '<span class="text-muted" style="font-size:12px;">'
+				ref_label = '<span class="text-muted" style="font-size:11px;font-weight:500;">'
 					+ esc(t.reference_type) + ': ' + esc(t.reference_name)
 					+ '</span>';
-			} else {
-				lead_cell = '<span class="text-muted">—</span>';
 			}
+
+			// Description — full text, no truncation, word-wraps. frappe.utils.strip_html
+			// doesn't exist in v16 — use jQuery to extract text.
+			var plain = t.description ? $('<div>').html(t.description).text().trim() : '';
+			var desc_html = plain
+				? esc(plain)
+				: '<em class="text-muted">No description</em>';
+
+			// Combined first cell: ref label (if any) on top, description below, all wrapping.
+			var first_cell = '<td style="white-space:normal;word-wrap:break-word;max-width:480px;">'
+				+ (ref_label ? '<div style="margin-bottom:4px;">' + ref_label + '</div>' : '')
+				+ '<div style="line-height:1.4;">' + desc_html + '</div>'
+				+ '</td>';
 
 			var date_str = t.date ? esc(frappe.datetime.str_to_user(t.date)) : '<span class="text-muted">—</span>';
 			var assigned_to = t.allocated_to || t.owner || '—';
 
+			// Short letter badges, with full word as tooltip.
 			var priority_badge = t.priority
-				? '<span class="indicator-pill ' + (priority_color[t.priority] || 'grey') + '">'
-					+ esc(t.priority) + '</span>'
-				: '—';
+				? '<span class="indicator-pill ' + (priority_color[t.priority] || 'grey') + '" title="' + esc(t.priority) + '">'
+					+ esc(priority_short[t.priority] || t.priority) + '</span>'
+				: '<span class="text-muted">—</span>';
 
-			var status_badge = '<span class="indicator-pill ' + (status_color[t.status] || 'grey') + '">'
-				+ esc(t.status || 'Open') + '</span>';
+			var status_badge = '<span class="indicator-pill ' + (status_color[t.status] || 'grey') + '" title="' + esc(t.status || 'Open') + '">'
+				+ esc(status_short[t.status] || (t.status || 'Open')) + '</span>';
 
 			// Icon-only action buttons with tooltips — saves horizontal space.
 			var action_btn = '';
@@ -311,13 +318,12 @@ class MyActivities {
 			}
 
 			return '<tr class="nest-task-row" data-todo="' + safe_name + '" style="cursor:pointer;">'
-				+ '<td>' + desc + '</td>'
-				+ '<td>' + lead_cell + '</td>'
+				+ first_cell
 				+ '<td style="white-space:nowrap;">' + date_str + '</td>'
 				+ '<td>' + esc(assigned_to) + '</td>'
-				+ '<td>' + priority_badge + '</td>'
-				+ '<td>' + status_badge + '</td>'
-				+ '<td style="white-space:nowrap;">' + action_btn + '</td>'
+				+ '<td style="text-align:center;">' + priority_badge + '</td>'
+				+ '<td style="text-align:center;">' + status_badge + '</td>'
+				+ '<td style="white-space:nowrap;text-align:center;">' + action_btn + '</td>'
 				+ '</tr>';
 		}).join('');
 
@@ -325,12 +331,11 @@ class MyActivities {
 			+ '<table class="table table-bordered table-hover" style="font-size:13px;margin-bottom:0;background:var(--card-bg, #fff);">'
 			+ '<thead style="background:var(--bg-light, #f4f7fa);">'
 			+ '<tr>'
-			+ '<th style="min-width:280px;">Description</th>'
-			+ '<th style="width:200px;">Lead / Reference</th>'
+			+ '<th style="min-width:320px;">Customer / Task</th>'
 			+ '<th style="width:110px;">Due Date</th>'
 			+ '<th style="width:170px;">Assigned To</th>'
-			+ '<th style="width:90px;">Priority</th>'
-			+ '<th style="width:90px;">Status</th>'
+			+ '<th style="width:50px;text-align:center;" title="Priority">Pri</th>'
+			+ '<th style="width:50px;text-align:center;" title="Status">Sts</th>'
 			+ '<th style="width:60px;text-align:center;">Action</th>'
 			+ '</tr>'
 			+ '</thead>'

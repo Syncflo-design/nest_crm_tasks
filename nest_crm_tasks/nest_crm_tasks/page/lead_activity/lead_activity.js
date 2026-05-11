@@ -265,6 +265,8 @@ class LeadActivityHub {
 
 		var priority_color = { 'High': 'red', 'Medium': 'yellow', 'Low': 'grey' };
 		var status_color   = { 'Open': 'blue', 'Closed': 'green', 'Cancelled': 'grey' };
+		var priority_short = { 'High': 'H', 'Medium': 'M', 'Low': 'L' };
+		var status_short   = { 'Open': 'O', 'Closed': 'CL', 'Cancelled': 'CA' };
 
 		var open_count = activities.filter(function(a) { return a.status === 'Open'; }).length;
 		var total = activities.length;
@@ -291,10 +293,11 @@ class LeadActivityHub {
 		var rows_html = activities.map(function(a) {
 			var safe_name = esc(a.name);
 
-			// frappe.utils.strip_html doesn't exist in v16 — use jQuery to extract text
-			var plain = a.description ? $('<div>').html(a.description).text() : '';
+			// Description — full text, word-wraps. frappe.utils.strip_html doesn't
+			// exist in v16 — use jQuery to extract text.
+			var plain = a.description ? $('<div>').html(a.description).text().trim() : '';
 			var desc = plain
-				? esc(plain.substring(0, 120)) + (plain.length > 120 ? '…' : '')
+				? esc(plain)
 				: '<em class="text-muted">No description</em>';
 
 			var date_str = a.date
@@ -303,13 +306,14 @@ class LeadActivityHub {
 
 			var assigned_to = a.allocated_to || a.owner || '--';
 
+			// Short letter badges with full word in tooltip.
 			var priority_badge = a.priority
-				? '<span class="indicator-pill ' + (priority_color[a.priority] || 'grey') + '">'
-					+ esc(a.priority) + '</span>'
+				? '<span class="indicator-pill ' + (priority_color[a.priority] || 'grey') + '" title="' + esc(a.priority) + '">'
+					+ esc(priority_short[a.priority] || a.priority) + '</span>'
 				: '--';
 
-			var status_badge = '<span class="indicator-pill ' + (status_color[a.status] || 'grey') + '">'
-				+ esc(a.status || 'Open') + '</span>';
+			var status_badge = '<span class="indicator-pill ' + (status_color[a.status] || 'grey') + '" title="' + esc(a.status || 'Open') + '">'
+				+ esc(status_short[a.status] || (a.status || 'Open')) + '</span>';
 
 			// Icon-only action buttons with tooltips — saves horizontal space.
 			var action_btn;
@@ -326,12 +330,12 @@ class LeadActivityHub {
 			}
 
 			return '<tr data-todo="' + safe_name + '">'
-				+ '<td>' + desc + '</td>'
+				+ '<td style="white-space:normal;word-wrap:break-word;max-width:480px;line-height:1.4;">' + desc + '</td>'
 				+ '<td style="white-space:nowrap;">' + date_str + '</td>'
 				+ '<td>' + esc(assigned_to) + '</td>'
-				+ '<td>' + priority_badge + '</td>'
-				+ '<td>' + status_badge + '</td>'
-				+ '<td style="white-space:nowrap;">' + action_btn + '</td>'
+				+ '<td style="text-align:center;">' + priority_badge + '</td>'
+				+ '<td style="text-align:center;">' + status_badge + '</td>'
+				+ '<td style="white-space:nowrap;text-align:center;">' + action_btn + '</td>'
 				+ '</tr>';
 		}).join('');
 
@@ -339,11 +343,11 @@ class LeadActivityHub {
 			+ '<table class="table table-bordered table-hover nest-activity-table" style="font-size:13px;margin-bottom:0;">'
 			+ '<thead style="background:var(--bg-light, #f4f7fa);">'
 			+ '<tr>'
-			+ '<th style="min-width:260px;">Description</th>'
+			+ '<th style="min-width:320px;">Description</th>'
 			+ '<th style="width:100px;">Due Date</th>'
 			+ '<th style="width:160px;">Assigned To</th>'
-			+ '<th style="width:90px;">Priority</th>'
-			+ '<th style="width:90px;">Status</th>'
+			+ '<th style="width:50px;text-align:center;" title="Priority">Pri</th>'
+			+ '<th style="width:50px;text-align:center;" title="Status">Sts</th>'
 			+ '<th style="width:60px;text-align:center;">Action</th>'
 			+ '</tr>'
 			+ '</thead>'
