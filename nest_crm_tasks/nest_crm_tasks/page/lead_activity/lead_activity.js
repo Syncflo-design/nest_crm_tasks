@@ -26,7 +26,13 @@ class LeadActivityHub {
 	constructor(page, wrapper) {
 		this.page = page;
 		this.wrapper = wrapper;
-		this.$main = $(wrapper).find('.lead-activity-hub');
+
+		// v16 modern desk: page.body is a jQuery object (NOT a DOM element). Create our
+		// own container inside it — `$(wrapper).find('.lead-activity-hub')` returns an
+		// empty collection because nothing creates that div. See
+		// gotchas/2026-05-10-frappe-v16-page-api-drift.md.
+		this.$main = $('<div class="lead-activity-hub"></div>').appendTo(page.body);
+
 		this.lead_name = null;
 		this.lead_data = null;
 

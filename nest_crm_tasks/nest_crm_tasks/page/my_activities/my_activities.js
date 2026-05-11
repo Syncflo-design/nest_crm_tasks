@@ -25,7 +25,12 @@ class MyActivities {
 	constructor(page, wrapper) {
 		this.page = page;
 		this.wrapper = wrapper;
-		this.$main = $(wrapper).find('.my-activities-page');
+
+		// v16 modern desk: page.body is a jQuery object (NOT a DOM element). Create our
+		// own container inside it — `$(wrapper).find('.my-activities-page')` returns an
+		// empty collection because nothing creates that div. See
+		// gotchas/2026-05-10-frappe-v16-page-api-drift.md.
+		this.$main = $('<div class="my-activities-page"></div>').appendTo(page.body);
 
 		// Persist filter choices across sessions
 		this.scope  = localStorage.getItem('nest.my_activities.scope')  || 'mine';   // 'mine' | 'all'
