@@ -48,14 +48,20 @@ class LeadActivityHub {
 	setup_page_actions() {
 		var me = this;
 
-		this.page.set_primary_action('View Full Profile', function() {
+		// Primary: View Full Profile (with user icon)
+		this.page.set_primary_action('<i class="fa fa-user" style="margin-right:6px;"></i>View Full Profile', function() {
 			if (me.lead_name) {
 				frappe.set_route('Form', 'Lead', me.lead_name);
 			}
-		}, 'octicon octicon-person');
+		});
 
-		this.page.add_action_item('Back to My Tasks', function() {
-			frappe.set_route('List', 'ToDo');
+		// Secondary: a visible "back" button so reps don't have to dig through Actions
+		this.page.set_secondary_action('<i class="fa fa-arrow-left" style="margin-right:6px;"></i>My Activities', function() {
+			frappe.set_route('my-activities');
+		});
+
+		this.page.add_action_item('Back to My Activities', function() {
+			frappe.set_route('my-activities');
 		});
 
 		this.page.add_action_item('Refresh', function() {
@@ -186,55 +192,50 @@ class LeadActivityHub {
 		};
 		var badge_color = status_color[lead.status] || 'grey';
 
-		var company_line = [lead.company_name, lead.territory, lead.industry]
-			.filter(Boolean)
-			.map(esc)
-			.join(' &bull; ');
-
-		var contact_parts = [];
+		// Build a single horizontal meta string. Everything inline, separated by bullets.
+		var meta_chunks = [];
+		if (lead.company_name) meta_chunks.push(esc(lead.company_name));
+		if (lead.territory)    meta_chunks.push(esc(lead.territory));
+		if (lead.industry)     meta_chunks.push(esc(lead.industry));
 		if (lead.email_id) {
-			contact_parts.push(
+			meta_chunks.push(
 				'<a href="mailto:' + encodeURIComponent(lead.email_id) + '">'
 				+ esc(lead.email_id) + '</a>'
 			);
 		}
-		if (lead.phone) contact_parts.push(esc(lead.phone));
-		if (lead.mobile_no) contact_parts.push(esc(lead.mobile_no));
-		var contact_line = contact_parts.join(' &nbsp;|&nbsp; ');
+		if (lead.phone)     meta_chunks.push(esc(lead.phone));
+		if (lead.mobile_no) meta_chunks.push(esc(lead.mobile_no));
+		if (lead.lead_owner) meta_chunks.push('<span style="color:var(--text-muted, #6c757d);">Owner:</span> <strong>' + esc(lead.lead_owner) + '</strong>');
+		if (lead.source)     meta_chunks.push('<span style="color:var(--text-muted, #6c757d);">Source:</span> <strong>' + esc(lead.source) + '</strong>');
 
-		var meta_parts = [];
-		if (lead.lead_owner) meta_parts.push('Owned by <strong>' + esc(lead.lead_owner) + '</strong>');
-		if (lead.source)     meta_parts.push('Source: <strong>'   + esc(lead.source)     + '</strong>');
-		var meta_line = meta_parts.join(' &nbsp;&bull;&nbsp; ');
+		var meta_line = meta_chunks.join(' <span style="color:var(--border-color, #d1d8dd);">&bull;</span> ');
 
+		// Compact one-line card: name + status + meta wrap on a single row, padding tightened.
 		var html = '<div class="nest-lead-card" style="'
 			+ 'background:var(--card-bg, #fff);'
 			+ 'border:1px solid var(--border-color, #d1d8dd);'
 			+ 'border-left:4px solid #1B5EA0;'
 			+ 'border-radius:4px;'
-			+ 'padding:20px 24px;'
-			+ 'margin-bottom:24px;'
+			+ 'padding:10px 14px;'
+			+ 'margin-bottom:12px;'
+			+ 'display:flex;'
+			+ 'align-items:center;'
+			+ 'gap:10px;'
+			+ 'flex-wrap:wrap;'
+			+ 'font-size:13px;'
+			+ 'line-height:1.4;'
 			+ '">'
 
-			+ '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">'
-			+ '<h3 style="margin:0;font-size:18px;font-weight:600;">'
+			+ '<h3 style="margin:0;font-size:15px;font-weight:600;white-space:nowrap;">'
 			+ esc(lead.lead_name || this.lead_name)
 			+ '</h3>'
-			+ '<span class="indicator-pill ' + badge_color + '">'
+			+ '<span class="indicator-pill ' + badge_color + '" style="font-size:11px;">'
 			+ esc(lead.status || 'Unknown')
 			+ '</span>'
-			+ '</div>'
-
-			+ (company_line
-				? '<div style="color:var(--text-muted, #6c757d);font-size:13px;margin-bottom:6px;">' + company_line + '</div>'
-				: '')
-
-			+ (contact_line
-				? '<div style="font-size:13px;margin-bottom:8px;">' + contact_line + '</div>'
-				: '')
 
 			+ (meta_line
-				? '<div style="font-size:12px;color:var(--text-muted, #6c757d);">' + meta_line + '</div>'
+				? '<span style="color:var(--border-color, #d1d8dd);">|</span>'
+				  + '<span style="flex:1;min-width:0;">' + meta_line + '</span>'
 				: '')
 
 			+ '</div>';
@@ -297,13 +298,16 @@ class LeadActivityHub {
 			var status_badge = '<span class="indicator-pill ' + (status_color[a.status] || 'grey') + '">'
 				+ esc(a.status || 'Open') + '</span>';
 
+			// Icon-only action buttons with tooltips — saves horizontal space.
 			var action_btn;
 			if (a.status === 'Open') {
 				action_btn = '<button class="btn btn-xs btn-success nest-complete-btn" data-todo="'
-					+ safe_name + '">Mark Complete</button>';
+					+ safe_name + '" title="Mark as Complete" aria-label="Mark as Complete">'
+					+ '<i class="fa fa-check"></i></button>';
 			} else if (a.status === 'Closed') {
 				action_btn = '<button class="btn btn-xs btn-default nest-reopen-btn" data-todo="'
-					+ safe_name + '">Reopen</button>';
+					+ safe_name + '" title="Reopen" aria-label="Reopen">'
+					+ '<i class="fa fa-undo"></i></button>';
 			} else {
 				action_btn = '<span class="text-muted" style="font-size:12px;">' + esc(a.status) + '</span>';
 			}
@@ -327,7 +331,7 @@ class LeadActivityHub {
 			+ '<th style="width:160px;">Assigned To</th>'
 			+ '<th style="width:90px;">Priority</th>'
 			+ '<th style="width:90px;">Status</th>'
-			+ '<th style="width:130px;">Action</th>'
+			+ '<th style="width:60px;text-align:center;">Action</th>'
 			+ '</tr>'
 			+ '</thead>'
 			+ '<tbody>' + rows_html + '</tbody>'

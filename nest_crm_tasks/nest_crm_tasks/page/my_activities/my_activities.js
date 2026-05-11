@@ -237,11 +237,16 @@ class MyActivities {
 			var status_badge = '<span class="indicator-pill ' + (status_color[t.status] || 'grey') + '">'
 				+ esc(t.status || 'Open') + '</span>';
 
+			// Icon-only action buttons with tooltips — saves horizontal space.
 			var action_btn = '';
 			if (t.status === 'Open') {
-				action_btn = '<button class="btn btn-xs btn-success nest-complete-btn" data-todo="' + safe_name + '">Mark Complete</button>';
+				action_btn = '<button class="btn btn-xs btn-success nest-complete-btn" data-todo="'
+					+ safe_name + '" title="Mark as Complete" aria-label="Mark as Complete">'
+					+ '<i class="fa fa-check"></i></button>';
 			} else if (t.status === 'Closed') {
-				action_btn = '<button class="btn btn-xs btn-default nest-reopen-btn" data-todo="' + safe_name + '">Reopen</button>';
+				action_btn = '<button class="btn btn-xs btn-default nest-reopen-btn" data-todo="'
+					+ safe_name + '" title="Reopen" aria-label="Reopen">'
+					+ '<i class="fa fa-undo"></i></button>';
 			}
 
 			return '<tr class="nest-task-row" data-todo="' + safe_name + '" style="cursor:pointer;">'
@@ -265,7 +270,7 @@ class MyActivities {
 			+ '<th style="width:170px;">Assigned To</th>'
 			+ '<th style="width:90px;">Priority</th>'
 			+ '<th style="width:90px;">Status</th>'
-			+ '<th style="width:130px;">Action</th>'
+			+ '<th style="width:60px;text-align:center;">Action</th>'
 			+ '</tr>'
 			+ '</thead>'
 			+ '<tbody>' + rows + '</tbody>'
