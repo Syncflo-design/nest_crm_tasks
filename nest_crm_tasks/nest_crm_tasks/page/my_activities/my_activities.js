@@ -212,6 +212,72 @@ class MyActivities {
 			],
 			order_by: 'date asc, modified desc',
 			limit: 200
+		}).then(this.enrich_reference_names.bind(this));
+	}
+
+	// Resolve reference_name → display name for Lead and Customer references in
+	// a single batched call per doctype. CRM-LEAD-XXX codes are useless to a rep;
+	// they want to see "Marius" or "Lind SA Automation" at a glance.
+	enrich_reference_names(tasks) {
+		var by_type = {};
+		tasks.forEach(function(t) {
+			if (t.reference_type && t.reference_name) {
+				(by_type[t.reference_type] = by_type[t.reference_type] || []).push(t.reference_name);
+			}
+		});
+
+		// Doctypes we know how to enrich + which fields to fetch.
+		var enrichers = {
+			'Lead':     ['lead_name', 'company_name'],
+			'Customer': ['customer_name'],
+			'Opportunity': ['party_name', 'customer_name'],
+			'HD Ticket': ['subject']
+		};
+
+		var promises = [];
+		var lookups = {};   // { 'Lead': { 'CRM-LEAD-X': {lead_name, company_name} }, ... }
+
+		Object.keys(enrichers).forEach(function(dt) {
+			var refs = by_type[dt];
+			if (!refs || refs.length === 0) return;
+			var unique = Array.from(new Set(refs));
+			promises.push(
+				frappe.db.get_list(dt, {
+					filters: [['name', 'in', unique]],
+					fields: ['name'].concat(enrichers[dt]),
+					limit: 500
+				}).then(function(rows) {
+					lookups[dt] = {};
+					rows.forEach(function(r) { lookups[dt][r.name] = r; });
+				}).catch(function() {
+					// User may not have read perm on this doctype — silently skip.
+					lookups[dt] = {};
+				})
+			);
+		});
+
+		return Promise.all(promises).then(function() {
+			tasks.forEach(function(t) {
+				var look = lookups[t.reference_type];
+				if (!look) return;
+				var row = look[t.reference_name];
+				if (!row) return;
+				if (t.reference_type === 'Lead') {
+					// Prefer person name, append company in parens if both exist.
+					var name    = row.lead_name || '';
+					var company = row.company_name || '';
+					t._ref_display = name && company
+						? name + ' — ' + company
+						: (name || company || t.reference_name);
+				} else if (t.reference_type === 'Customer') {
+					t._ref_display = row.customer_name || t.reference_name;
+				} else if (t.reference_type === 'Opportunity') {
+					t._ref_display = row.party_name || row.customer_name || t.reference_name;
+				} else if (t.reference_type === 'HD Ticket') {
+					t._ref_display = row.subject || t.reference_name;
+				}
+			});
+			return tasks;
 		});
 	}
 
@@ -264,19 +330,26 @@ class MyActivities {
 		var rows = tasks.map(function(t) {
 			var safe_name = esc(t.name);
 
-			// Reference label (top of first cell). Blue pill if Lead; plain muted if other ref.
+			// Reference label (top of first cell). Blue pill if Lead with the
+			// resolved display name; plain muted if other ref.
 			var ref_label = '';
 			if (t.reference_type === 'Lead' && t.reference_name) {
+				// Prefer the resolved display name; fall back to the lead code.
+				var display = t._ref_display || t.reference_name;
 				ref_label = '<a class="nest-lead-badge" data-lead="' + esc(t.reference_name) + '"'
 					+ ' href="/app/lead-activity/' + encodeURIComponent(t.reference_name) + '"'
 					+ ' title="Open Lead Activity Hub for ' + esc(t.reference_name) + '"'
 					+ ' style="' + badge_style + '">'
 					+ '<i class="fa fa-user" style="margin-right:4px;"></i>'
-					+ esc(t.reference_name)
+					+ esc(display)
 					+ '</a>';
 			} else if (t.reference_type && t.reference_name) {
+				// Non-Lead ref — show "<DocType>: <display name or code>" muted.
+				var ref_text = t._ref_display
+					? (t.reference_type + ': ' + t._ref_display)
+					: (t.reference_type + ': ' + t.reference_name);
 				ref_label = '<span class="text-muted" style="font-size:11px;font-weight:500;">'
-					+ esc(t.reference_type) + ': ' + esc(t.reference_name)
+					+ esc(ref_text)
 					+ '</span>';
 			}
 
