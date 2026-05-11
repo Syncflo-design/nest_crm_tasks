@@ -1,0 +1,10 @@
+[
+ {
+  "doctype": "Client Script",
+  "name": "nest-crm-todo-intercept",
+  "dt": "ToDo",
+  "view": "List",
+  "enabled": 1,
+  "script": "frappe.listview_settings['ToDo'] = {\n\tonload: function(listview) {\n\t\t// Intercept row clicks on ToDo items that are linked to a Lead\n\t\t// and redirect to the Lead Activity Hub instead of the default ToDo form.\n\t\tlistview.page.main.on('click', '.list-row', function(e) {\n\t\t\tvar $row = $(this);\n\n\t\t\t// Do nothing if the click was on a checkbox or action button\n\t\t\tif ($(e.target).is('input[type=checkbox]') || $(e.target).closest('.list-row-checkbox').length) {\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tif ($(e.target).closest('.btn').length) {\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tvar doc_name = $row.attr('data-name');\n\t\t\tif (!doc_name) return;\n\n\t\t\t// Check if this ToDo is linked to a Lead\n\t\t\tfrappe.db.get_value('ToDo', doc_name, ['reference_type', 'reference_name'])\n\t\t\t\t.then(function(r) {\n\t\t\t\t\tif (r && r.message && r.message.reference_type === 'Lead' && r.message.reference_name) {\n\t\t\t\t\t\t// Intercept - go to Lead Activity Hub\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\te.stopImmediatePropagation();\n\t\t\t\t\t\tfrappe.set_route('lead-activity', r.message.reference_name);\n\t\t\t\t\t}\n\t\t\t\t\t// For non-Lead todos, default navigation proceeds\n\t\t\t\t});\n\t\t});\n\t}\n};\n"
+ }
+]

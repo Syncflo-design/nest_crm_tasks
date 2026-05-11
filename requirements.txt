@@ -1,0 +1,1 @@
+# Frappe is a dependency but managed by bench
