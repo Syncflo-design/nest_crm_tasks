@@ -277,7 +277,8 @@ class LeadActivityHub {
 		var rows_html = activities.map(function(a) {
 			var safe_name = esc(a.name);
 
-			var plain = a.description ? frappe.utils.strip_html(a.description) : '';
+			// frappe.utils.strip_html doesn't exist in v16 — use jQuery to extract text
+			var plain = a.description ? $('<div>').html(a.description).text() : '';
 			var desc = plain
 				? esc(plain.substring(0, 120)) + (plain.length > 120 ? '…' : '')
 				: '<em class="text-muted">No description</em>';

@@ -202,7 +202,8 @@ class MyActivities {
 			var safe_name = esc(t.name);
 
 			// Description (strip HTML, truncate)
-			var plain = t.description ? frappe.utils.strip_html(t.description) : '';
+			// frappe.utils.strip_html doesn't exist in v16 — use jQuery to extract text
+			var plain = t.description ? $('<div>').html(t.description).text() : '';
 			var desc = plain
 				? esc(plain.substring(0, 140)) + (plain.length > 140 ? '…' : '')
 				: '<em class="text-muted">No description</em>';
