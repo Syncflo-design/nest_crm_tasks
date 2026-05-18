@@ -1,0 +1,149 @@
+{
+ "actions": [],
+ "autoname": "format:TOC-{YYYY}-{####}",
+ "creation": "2026-05-18 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "todo",
+  "task_type",
+  "section_outcome",
+  "outcome_category",
+  "notes",
+  "section_meta",
+  "recorded_at",
+  "col_meta",
+  "recorded_by",
+  "section_followup",
+  "needs_followup",
+  "next_task_date",
+  "next_task_type",
+  "next_task"
+ ],
+ "fields": [
+  {
+   "fieldname": "todo",
+   "fieldtype": "Link",
+   "label": "ToDo",
+   "options": "ToDo",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "task_type",
+   "fieldtype": "Link",
+   "label": "Task Type",
+   "options": "Task Type",
+   "fetch_from": "todo.task_type",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "section_outcome",
+   "fieldtype": "Section Break",
+   "label": "Outcome"
+  },
+  {
+   "fieldname": "outcome_category",
+   "fieldtype": "Link",
+   "label": "Outcome",
+   "options": "Task Outcome Category",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "section_meta",
+   "fieldtype": "Section Break",
+   "label": "Audit"
+  },
+  {
+   "fieldname": "recorded_at",
+   "fieldtype": "Datetime",
+   "label": "Recorded at",
+   "default": "Now",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_meta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "recorded_by",
+   "fieldtype": "Link",
+   "label": "Recorded by",
+   "options": "User",
+   "default": "__user",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_followup",
+   "fieldtype": "Section Break",
+   "label": "Follow-up"
+  },
+  {
+   "fieldname": "needs_followup",
+   "fieldtype": "Check",
+   "label": "Schedule a follow-up",
+   "default": "0"
+  },
+  {
+   "fieldname": "next_task_date",
+   "fieldtype": "Date",
+   "label": "Follow-up date",
+   "depends_on": "eval:doc.needs_followup",
+   "mandatory_depends_on": "eval:doc.needs_followup"
+  },
+  {
+   "fieldname": "next_task_type",
+   "fieldtype": "Link",
+   "label": "Follow-up type",
+   "options": "Task Type",
+   "depends_on": "eval:doc.needs_followup",
+   "mandatory_depends_on": "eval:doc.needs_followup"
+  },
+  {
+   "fieldname": "next_task",
+   "fieldtype": "Link",
+   "label": "Next ToDo",
+   "options": "ToDo",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-05-18 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Nest CRM Tasks",
+ "name": "Task Outcome",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "Sales User",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  }
+ ],
+ "sort_field": "recorded_at",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
