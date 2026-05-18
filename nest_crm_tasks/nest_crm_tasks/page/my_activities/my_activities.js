@@ -1,6 +1,7 @@
 // nest_crm_tasks — My Activities
 // Custom replacement for /desk/todo. We control the rendering, so click handling works.
-// Each Lead-linked row has a clickable Lead badge that opens /app/lead-activity/<lead>.
+// Each Lead- or Customer-linked row gets a clickable party badge that opens
+// /app/party-activity/<party_type>/<party_name>.
 
 frappe.pages['my-activities'].on_page_load = function(wrapper) {
 	var page = frappe.ui.make_app_page({
@@ -133,17 +134,19 @@ class MyActivities {
 	bind_events() {
 		var me = this;
 
-		// Lead badge click → Lead Activity Hub. Stop propagation so the row click doesn't also fire.
-		this.$main.on('click', '.nest-lead-badge', function(e) {
+		// Party badge click → Party Activity Hub. Stop propagation so the row click doesn't also fire.
+		this.$main.on('click', '.nest-party-badge', function(e) {
 			e.preventDefault();
 			e.stopPropagation();
-			var lead = $(this).data('lead');
-			if (lead) frappe.set_route('lead-activity', lead);
+			var $b = $(this);
+			var ptype = $b.data('party-type');
+			var pname = $b.data('party-name');
+			if (ptype && pname) frappe.set_route('party-activity', ptype, pname);
 		});
 
 		// Row click (anywhere except badge / Mark Complete) → open the standard ToDo form
 		this.$main.on('click', '.nest-task-row', function(e) {
-			if ($(e.target).closest('.nest-lead-badge, .nest-complete-btn, .nest-reopen-btn, button, a').length) return;
+			if ($(e.target).closest('.nest-party-badge, .nest-complete-btn, .nest-reopen-btn, button, a').length) return;
 			var name = $(this).data('todo');
 			if (name) frappe.set_route('Form', 'ToDo', name);
 		});
@@ -291,8 +294,9 @@ class MyActivities {
 		var priority_short = { 'High': 'H', 'Medium': 'M', 'Low': 'L' };
 		var status_short   = { 'Open': 'O', 'Closed': 'CL', 'Cancelled': 'CA' };
 
-		var open_count   = tasks.filter(function(t) { return t.status === 'Open'; }).length;
-		var lead_count   = tasks.filter(function(t) { return t.reference_type === 'Lead'; }).length;
+		var open_count     = tasks.filter(function(t) { return t.status === 'Open'; }).length;
+		var lead_count     = tasks.filter(function(t) { return t.reference_type === 'Lead'; }).length;
+		var customer_count = tasks.filter(function(t) { return t.reference_type === 'Customer'; }).length;
 		var total = tasks.length;
 
 		var summary = '<div style="display:flex;gap:24px;margin-bottom:16px;padding:12px 16px;'
@@ -300,7 +304,8 @@ class MyActivities {
 			+ 'border-radius:4px;font-size:13px;">'
 			+ '<div><strong>' + total + '</strong> tasks</div>'
 			+ '<div><strong>' + open_count + '</strong> open</div>'
-			+ '<div><strong>' + lead_count + '</strong> linked to leads</div>'
+			+ '<div><strong>' + lead_count + '</strong> leads</div>'
+			+ '<div><strong>' + customer_count + '</strong> customers</div>'
 			+ '</div>';
 
 		this.$main.html(summary);
@@ -330,21 +335,26 @@ class MyActivities {
 		var rows = tasks.map(function(t) {
 			var safe_name = esc(t.name);
 
-			// Reference label (top of first cell). Blue pill if Lead with the
-			// resolved display name; plain muted if other ref.
+			// Reference label (top of first cell). Pill for Lead or Customer (both
+			// route to the Party Activity Hub). Plain muted text for any other ref.
 			var ref_label = '';
-			if (t.reference_type === 'Lead' && t.reference_name) {
-				// Prefer the resolved display name; fall back to the lead code.
+			if ((t.reference_type === 'Lead' || t.reference_type === 'Customer') && t.reference_name) {
 				var display = t._ref_display || t.reference_name;
-				ref_label = '<a class="nest-lead-badge" data-lead="' + esc(t.reference_name) + '"'
-					+ ' href="/app/lead-activity/' + encodeURIComponent(t.reference_name) + '"'
-					+ ' title="Open Lead Activity Hub for ' + esc(t.reference_name) + '"'
+				var icon = t.reference_type === 'Lead' ? 'fa-user' : 'fa-building';
+				var hub_url = '/app/party-activity/'
+					+ encodeURIComponent(t.reference_type) + '/'
+					+ encodeURIComponent(t.reference_name);
+				ref_label = '<a class="nest-party-badge"'
+					+ ' data-party-type="' + esc(t.reference_type) + '"'
+					+ ' data-party-name="' + esc(t.reference_name) + '"'
+					+ ' href="' + hub_url + '"'
+					+ ' title="Open Party Activity Hub for ' + esc(t.reference_name) + '"'
 					+ ' style="' + badge_style + '">'
-					+ '<i class="fa fa-user" style="margin-right:4px;"></i>'
+					+ '<i class="fa ' + icon + '" style="margin-right:4px;"></i>'
 					+ esc(display)
 					+ '</a>';
 			} else if (t.reference_type && t.reference_name) {
-				// Non-Lead ref — show "<DocType>: <display name or code>" muted.
+				// Other ref type — muted text only.
 				var ref_text = t._ref_display
 					? (t.reference_type + ': ' + t._ref_display)
 					: (t.reference_type + ': ' + t.reference_name);
