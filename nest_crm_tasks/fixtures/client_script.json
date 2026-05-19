@@ -17,6 +17,26 @@
   "view": "Form",
   "enabled": 1,
   "script_type": "Form",
-  "script": "frappe.ui.form.on('ToDo', {\n  refresh: function(frm) {\n    // Show a 'Back to My Activities' button on every ToDo form so sales reps\n    // who drilled in from /desk/my-activities have a one-click way home.\n    // Custom buttons accumulate across renders — clear our previous button first.\n    frm.page.remove_inner_button && frm.page.remove_inner_button(__('My Activities'));\n    frm.page.set_secondary_action('<i class=\"fa fa-arrow-left\" style=\"margin-right:6px;\"></i>My Activities', function() {\n      frappe.set_route('my-activities');\n    });\n    // If the ToDo is linked to a Lead or Customer, offer a jump to the Party Activity Hub.\n    if ((frm.doc.reference_type === 'Lead' || frm.doc.reference_type === 'Customer') && frm.doc.reference_name) {\n      frm.add_custom_button(__('Party Activity Hub'), function() {\n        frappe.set_route('party-activity', frm.doc.reference_type, frm.doc.reference_name);\n      });\n    }\n  }\n});\n"
+  "script": "frappe.ui.form.on('ToDo', {\n  refresh: function(frm) {\n    frm.page.remove_inner_button && frm.page.remove_inner_button(__('My Activities'));\n    frm.page.set_secondary_action('<i class=\"fa fa-arrow-left\" style=\"margin-right:6px;\"></i>My Activities', function() {\n      frappe.set_route('my-activities');\n    });\n    if ((frm.doc.reference_type === 'Lead' || frm.doc.reference_type === 'Customer') && frm.doc.reference_name) {\n      frm.add_custom_button(__('Party Activity Hub'), function() {\n        frappe.set_route('party-activity', frm.doc.reference_type, frm.doc.reference_name);\n      });\n    }\n  }\n});\n"
+ },
+ {
+  "doctype": "Client Script",
+  "name": "nest-crm-lead-activity-button",
+  "module": "Nest CRM Tasks",
+  "dt": "Lead",
+  "view": "Form",
+  "enabled": 1,
+  "script_type": "Form",
+  "script": "frappe.ui.form.on('Lead', {\n  refresh: function(frm) {\n    if (frm.is_new()) return;\n    frm.add_custom_button(__('Activity Hub'), function() {\n      frappe.set_route('party-activity', 'Lead', frm.doc.name);\n    });\n  }\n});\n"
+ },
+ {
+  "doctype": "Client Script",
+  "name": "nest-crm-customer-activity-button",
+  "module": "Nest CRM Tasks",
+  "dt": "Customer",
+  "view": "Form",
+  "enabled": 1,
+  "script_type": "Form",
+  "script": "frappe.ui.form.on('Customer', {\n  refresh: function(frm) {\n    if (frm.is_new()) return;\n    frm.add_custom_button(__('Activity Hub'), function() {\n      frappe.set_route('party-activity', 'Customer', frm.doc.name);\n    });\n  }\n});\n"
  }
 ]
