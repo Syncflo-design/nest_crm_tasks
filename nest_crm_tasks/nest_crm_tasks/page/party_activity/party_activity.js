@@ -82,10 +82,25 @@ class PartyActivityHub {
 			me.reopen_task($(this).data('todo'), $(this));
 		});
 
+		this.$main.on('click', '.nest-edit-btn', function(e) {
+			e.stopPropagation();
+			me.open_edit_task_dialog($(this).data('todo'));
+		});
+
 		this.$main.on('click', '.nest-add-task-btn', function(e) {
 			e.preventDefault();
 			me.open_new_task_dialog();
 		});
+	}
+
+	// Due date is mandatory except for Leads in a terminal status (lost/dead).
+	// Customers always require a next due date.
+	due_required() {
+		if (this.party_type === 'Lead' && this.party_data) {
+			var s = this.party_data.status;
+			if (s === 'Lost Quotation' || s === 'Do Not Contact') return false;
+		}
+		return true;
 	}
 
 	// -------------------------------------------------------------------------
@@ -165,7 +180,8 @@ class PartyActivityHub {
 				'name', 'description', 'date',
 				'allocated_to',
 				'assigned_by', 'owner',
-				'priority', 'status', 'modified'
+				'priority', 'status', 'modified',
+				'task_type'
 			],
 			order_by: 'date asc, modified desc',
 			limit: 200
@@ -351,6 +367,14 @@ class PartyActivityHub {
 				action_btn = '<span class="text-muted" style="font-size:12px;">' + esc(a.status) + '</span>';
 			}
 
+			// Edit is restricted to the task owner (creator), not the assignee.
+			var edit_btn = (a.owner === frappe.session.user)
+				? '<button class="btn btn-xs btn-default nest-edit-btn" data-todo="'
+					+ safe_name + '" title="Edit" aria-label="Edit" style="margin-right:4px;">'
+					+ '<i class="fa fa-pencil"></i></button>'
+				: '';
+			action_btn = edit_btn + action_btn;
+
 			return '<tr data-todo="' + safe_name + '">'
 				+ '<td style="white-space:normal;word-wrap:break-word;max-width:480px;line-height:1.4;">' + desc + '</td>'
 				+ '<td style="white-space:nowrap;">' + date_str + '</td>'
@@ -421,7 +445,8 @@ class PartyActivityHub {
 			title: 'Add Activity / Task',
 			fields: [
 				{ fieldname: 'description', fieldtype: 'Small Text', label: 'Description', reqd: 1 },
-				{ fieldname: 'date',        fieldtype: 'Date',       label: 'Due Date',    default: frappe.datetime.nowdate() },
+				{ fieldname: 'date',        fieldtype: 'Date',       label: 'Next Task Due Date',
+				  default: frappe.datetime.nowdate(), reqd: me.due_required() ? 1 : 0 },
 				{ fieldname: 'task_type',   fieldtype: 'Link',       label: 'Task Type',   options: 'Task Type' },
 				{ fieldname: 'priority',    fieldtype: 'Select',     label: 'Priority',
 				  options: 'Low\nMedium\nHigh', default: 'Medium' },
@@ -457,6 +482,63 @@ class PartyActivityHub {
 		});
 
 		d.show();
+	}
+
+	// -------------------------------------------------------------------------
+	// Edit — owner only (button is only rendered for the task owner; ToDo write
+	// permissions still apply server-side).
+	// -------------------------------------------------------------------------
+
+	open_edit_task_dialog(todo_name) {
+		var me = this;
+
+		frappe.db.get_doc('ToDo', todo_name).then(function(doc) {
+			var plain = doc.description
+				? $('<div>').html(doc.description).text().trim()
+				: '';
+
+			var d = new frappe.ui.Dialog({
+				title: 'Edit Activity / Task',
+				fields: [
+					{ fieldname: 'description', fieldtype: 'Small Text', label: 'Description',
+					  reqd: 1, default: plain },
+					{ fieldname: 'date',        fieldtype: 'Date',       label: 'Next Task Due Date',
+					  default: doc.date || null, reqd: me.due_required() ? 1 : 0 },
+					{ fieldname: 'task_type',   fieldtype: 'Link',       label: 'Task Type',
+					  options: 'Task Type', default: doc.task_type || null },
+					{ fieldname: 'priority',    fieldtype: 'Select',     label: 'Priority',
+					  options: 'Low\nMedium\nHigh', default: doc.priority || 'Medium' },
+					{ fieldname: 'allocated_to', fieldtype: 'Link',      label: 'Assign To',
+					  options: 'User', default: doc.allocated_to || frappe.session.user },
+					{ fieldname: 'status',      fieldtype: 'Select',     label: 'Status',
+					  options: 'Open\nClosed\nCancelled', default: doc.status || 'Open' }
+				],
+				primary_action_label: 'Save',
+				primary_action: function(values) {
+					d.disable_primary_action();
+
+					frappe.db.set_value('ToDo', todo_name, {
+						description: values.description,
+						date: values.date || null,
+						task_type: values.task_type || null,
+						priority: values.priority,
+						allocated_to: values.allocated_to || frappe.session.user,
+						status: values.status || 'Open'
+					}).then(function() {
+						frappe.show_alert({ message: 'Task updated', indicator: 'green' });
+						d.hide();
+						me.render(me.party_type, me.party_name);
+					}).catch(function() {
+						d.enable_primary_action();
+						frappe.show_alert({ message: 'Could not update task', indicator: 'red' });
+					});
+				}
+			});
+
+			d.show();
+		}).catch(function() {
+			frappe.show_alert({ message: 'Could not load task', indicator: 'red' });
+		});
 	}
 
 	// -------------------------------------------------------------------------
