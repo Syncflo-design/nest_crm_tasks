@@ -47,9 +47,11 @@ class MyActivities {
 	setup_page_actions() {
 		var me = this;
 
-		this.page.set_primary_action('<i class="fa fa-plus" style="margin-right:6px;"></i>Add Task', function() {
-			me.open_new_task_dialog();
-		});
+		// No global "Add Task" here by design: tasks must stay tied to a Lead or
+		// Customer. New tasks are created either from the party (Party Activity
+		// Hub) or as a follow-up of an existing task (the per-row Follow-up
+		// button), which inherits that task's party link. Unlinked tasks are
+		// intentionally not creatable from this page.
 
 		// Scope toggle (My Tasks / All)
 		this.page.add_field({
@@ -165,6 +167,17 @@ class MyActivities {
 		this.$main.on('click', '.nest-reopen-btn', function(e) {
 			e.stopPropagation();
 			me.set_status($(this).data('todo'), 'Open', $(this));
+		});
+
+		this.$main.on('click', '.nest-followup-btn', function(e) {
+			e.stopPropagation();
+			var $b = $(this);
+			me.open_followup_dialog({
+				parent_todo: $b.data('todo'),
+				ref_type:    $b.data('ref-type'),
+				ref_name:    $b.data('ref-name'),
+				ref_display: $b.data('ref-display')
+			});
 		});
 	}
 
@@ -400,13 +413,27 @@ class MyActivities {
 					+ '<i class="fa fa-undo"></i></button>';
 			}
 
+			// Follow-up: only offered for tasks already tied to a Lead or Customer.
+			// The new task inherits that party link and records this task as its
+			// parent, so every follow-up stays customer/lead-connected.
+			var followup_btn = '';
+			if ((t.reference_type === 'Lead' || t.reference_type === 'Customer') && t.reference_name) {
+				followup_btn = '<button class="btn btn-xs btn-default nest-followup-btn" data-todo="'
+					+ safe_name + '"'
+					+ ' data-ref-type="' + esc(t.reference_type) + '"'
+					+ ' data-ref-name="' + esc(t.reference_name) + '"'
+					+ ' data-ref-display="' + esc(t._ref_display || t.reference_name) + '"'
+					+ ' title="Add follow-up task" aria-label="Add follow-up task" style="margin-right:4px;">'
+					+ '<i class="fa fa-reply"></i></button>';
+			}
+
 			return '<tr class="nest-task-row" data-todo="' + safe_name + '" style="cursor:pointer;">'
 				+ first_cell
 				+ '<td style="white-space:nowrap;">' + date_str + '</td>'
 				+ '<td>' + esc(assigned_to) + '</td>'
 				+ '<td style="text-align:center;">' + priority_badge + '</td>'
 				+ '<td style="text-align:center;">' + status_badge + '</td>'
-				+ '<td style="white-space:nowrap;text-align:center;">' + action_btn + '</td>'
+				+ '<td style="white-space:nowrap;text-align:center;">' + followup_btn + action_btn + '</td>'
 				+ '</tr>';
 		}).join('');
 
@@ -419,7 +446,7 @@ class MyActivities {
 			+ '<th style="width:170px;">Assigned To</th>'
 			+ '<th style="width:50px;text-align:center;" title="Priority">Pri</th>'
 			+ '<th style="width:50px;text-align:center;" title="Status">Sts</th>'
-			+ '<th style="width:60px;text-align:center;">Action</th>'
+			+ '<th style="width:90px;text-align:center;">Action</th>'
 			+ '</tr>'
 			+ '</thead>'
 			+ '<tbody>' + rows + '</tbody>'
@@ -450,44 +477,61 @@ class MyActivities {
 			});
 	}
 
-	open_new_task_dialog() {
+	// Create a follow-up of an existing task. The new task inherits the source
+	// task's Lead/Customer link (reference_type/reference_name) and records the
+	// source as its parent_task, so the chain stays party-connected. There is no
+	// path here to create an unlinked task — that is intentional.
+	open_followup_dialog(src) {
 		var me = this;
 
+		if (!src || !src.ref_type || !src.ref_name) {
+			frappe.show_alert({ message: 'This task is not linked to a Lead or Customer.', indicator: 'red' });
+			return;
+		}
+
+		var party_label = (src.ref_display || src.ref_name) + ' (' + src.ref_type + ')';
+
 		var d = new frappe.ui.Dialog({
-			title: 'Add Task',
+			title: 'Add Follow-up Task',
 			fields: [
+				{ fieldtype: 'HTML', fieldname: 'linked_info',
+				  options: '<div class="text-muted" style="margin-bottom:8px;">'
+					+ 'Follow-up linked to <strong>' + frappe.utils.escape_html(party_label) + '</strong>'
+					+ '</div>' },
 				{ fieldname: 'description', fieldtype: 'Small Text', label: 'Description', reqd: 1 },
-				{ fieldname: 'date',        fieldtype: 'Date',       label: 'Due Date',    default: frappe.datetime.nowdate() },
+				{ fieldname: 'date',        fieldtype: 'Date',       label: 'Due Date',
+				  default: frappe.datetime.nowdate(), reqd: 1 },
+				{ fieldname: 'task_type',   fieldtype: 'Link',       label: 'Task Type', options: 'Task Type' },
 				{ fieldname: 'priority',    fieldtype: 'Select',     label: 'Priority',
 				  options: 'Low\nMedium\nHigh', default: 'Medium' },
 				{ fieldname: 'allocated_to', fieldtype: 'Link',      label: 'Assign To',
-				  options: 'User', default: frappe.session.user },
-				{ fieldname: 'reference_type', fieldtype: 'Link',    label: 'Link To (Doctype)',
-				  options: 'DocType' },
-				{ fieldname: 'reference_name', fieldtype: 'Dynamic Link', label: 'Linked Document',
-				  options: 'reference_type' }
+				  options: 'User', default: frappe.session.user }
 			],
-			primary_action_label: 'Add Task',
+			primary_action_label: 'Add Follow-up',
 			primary_action: function(values) {
 				d.disable_primary_action();
 
-				frappe.db.insert({
+				var payload = {
 					doctype: 'ToDo',
 					description: values.description,
 					date: values.date || null,
 					priority: values.priority,
 					allocated_to: values.allocated_to || frappe.session.user,
-					reference_type: values.reference_type || null,
-					reference_name: values.reference_name || null,
+					reference_type: src.ref_type,
+					reference_name: src.ref_name,
+					parent_task: src.parent_todo || null,
 					assigned_by: frappe.session.user,
 					status: 'Open'
-				}).then(function() {
-					frappe.show_alert({ message: 'Task added', indicator: 'green' });
+				};
+				if (values.task_type) payload.task_type = values.task_type;
+
+				frappe.db.insert(payload).then(function() {
+					frappe.show_alert({ message: 'Follow-up added', indicator: 'green' });
 					d.hide();
 					me.refresh();
 				}).catch(function() {
 					d.enable_primary_action();
-					frappe.show_alert({ message: 'Could not add task', indicator: 'red' });
+					frappe.show_alert({ message: 'Could not add follow-up', indicator: 'red' });
 				});
 			}
 		});

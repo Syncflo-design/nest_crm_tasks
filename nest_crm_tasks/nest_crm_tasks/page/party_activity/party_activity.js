@@ -91,6 +91,11 @@ class PartyActivityHub {
 			e.preventDefault();
 			me.open_new_task_dialog();
 		});
+
+		this.$main.on('click', '.nest-followup-btn', function(e) {
+			e.stopPropagation();
+			me.open_followup_dialog($(this).data('todo'));
+		});
 	}
 
 	// Due date is mandatory except for Leads in a terminal status (lost/dead).
@@ -367,13 +372,19 @@ class PartyActivityHub {
 				action_btn = '<span class="text-muted" style="font-size:12px;">' + esc(a.status) + '</span>';
 			}
 
+			// Follow-up: spawns a new task on this same party, recording this task
+			// as its parent. Available on every row since the party link is implicit.
+			var followup_btn = '<button class="btn btn-xs btn-default nest-followup-btn" data-todo="'
+				+ safe_name + '" title="Add follow-up task" aria-label="Add follow-up task" style="margin-right:4px;">'
+				+ '<i class="fa fa-reply"></i></button>';
+
 			// Edit is restricted to the task owner (creator), not the assignee.
 			var edit_btn = (a.owner === frappe.session.user)
 				? '<button class="btn btn-xs btn-default nest-edit-btn" data-todo="'
 					+ safe_name + '" title="Edit" aria-label="Edit" style="margin-right:4px;">'
 					+ '<i class="fa fa-pencil"></i></button>'
 				: '';
-			action_btn = edit_btn + action_btn;
+			action_btn = followup_btn + edit_btn + action_btn;
 
 			return '<tr data-todo="' + safe_name + '">'
 				+ '<td style="white-space:normal;word-wrap:break-word;max-width:480px;line-height:1.4;">' + desc + '</td>'
@@ -394,7 +405,7 @@ class PartyActivityHub {
 			+ '<th style="width:160px;">Assigned To</th>'
 			+ '<th style="width:50px;text-align:center;" title="Priority">Pri</th>'
 			+ '<th style="width:50px;text-align:center;" title="Status">Sts</th>'
-			+ '<th style="width:60px;text-align:center;">Action</th>'
+			+ '<th style="width:110px;text-align:center;">Action</th>'
 			+ '</tr>'
 			+ '</thead>'
 			+ '<tbody>' + rows_html + '</tbody>'
@@ -477,6 +488,66 @@ class PartyActivityHub {
 				}).catch(function() {
 					d.enable_primary_action();
 					frappe.show_alert({ message: 'Could not add task', indicator: 'red' });
+				});
+			}
+		});
+
+		d.show();
+	}
+
+	// -------------------------------------------------------------------------
+	// Follow-up — a new task on this same party, recording the source task as its
+	// parent_task. Same party link as open_new_task_dialog, plus the parent chain.
+	// -------------------------------------------------------------------------
+
+	open_followup_dialog(parent_todo) {
+		var me = this;
+
+		var party_name = (me.party_data
+			&& (me.party_data.lead_name || me.party_data.customer_name)) || me.party_name;
+		var party_label = party_name + ' (' + me.party_type + ')';
+
+		var d = new frappe.ui.Dialog({
+			title: 'Add Follow-up Task',
+			fields: [
+				{ fieldtype: 'HTML', fieldname: 'linked_info',
+				  options: '<div class="text-muted" style="margin-bottom:8px;">'
+					+ 'Follow-up linked to <strong>' + frappe.utils.escape_html(party_label) + '</strong>'
+					+ '</div>' },
+				{ fieldname: 'description', fieldtype: 'Small Text', label: 'Description', reqd: 1 },
+				{ fieldname: 'date',        fieldtype: 'Date',       label: 'Next Task Due Date',
+				  default: frappe.datetime.nowdate(), reqd: me.due_required() ? 1 : 0 },
+				{ fieldname: 'task_type',   fieldtype: 'Link',       label: 'Task Type', options: 'Task Type' },
+				{ fieldname: 'priority',    fieldtype: 'Select',     label: 'Priority',
+				  options: 'Low\nMedium\nHigh', default: 'Medium' },
+				{ fieldname: 'allocated_to', fieldtype: 'Link',      label: 'Assign To',
+				  options: 'User', default: frappe.session.user }
+			],
+			primary_action_label: 'Add Follow-up',
+			primary_action: function(values) {
+				d.disable_primary_action();
+
+				var payload = {
+					doctype: 'ToDo',
+					description: values.description,
+					date: values.date || null,
+					priority: values.priority,
+					allocated_to: values.allocated_to || frappe.session.user,
+					reference_type: me.party_type,
+					reference_name: me.party_name,
+					parent_task: parent_todo || null,
+					assigned_by: frappe.session.user,
+					status: 'Open'
+				};
+				if (values.task_type) payload.task_type = values.task_type;
+
+				frappe.db.insert(payload).then(function() {
+					frappe.show_alert({ message: 'Follow-up added', indicator: 'green' });
+					d.hide();
+					me.render(me.party_type, me.party_name);
+				}).catch(function() {
+					d.enable_primary_action();
+					frappe.show_alert({ message: 'Could not add follow-up', indicator: 'red' });
 				});
 			}
 		});
