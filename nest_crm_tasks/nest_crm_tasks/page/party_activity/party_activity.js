@@ -188,14 +188,16 @@ class PartyActivityHub {
 				'priority', 'status', 'modified',
 				'task_type'
 			],
-			order_by: 'date asc, modified desc',
+			order_by: 'date desc, modified desc',
 			limit: 200
 		}).then(function(activities) {
 			var rank = { High: 0, Medium: 1, Low: 2 };
 			activities.sort(function(a, b) {
-				var ad = a.date || '9999-12-31';
-				var bd = b.date || '9999-12-31';
-				if (ad !== bd) return ad < bd ? -1 : 1;
+				// Most recent (latest due date) at the top, oldest at the bottom.
+				// Undated tasks sink to the bottom (treated as the oldest).
+				var ad = a.date || '0000-00-00';
+				var bd = b.date || '0000-00-00';
+				if (ad !== bd) return ad > bd ? -1 : 1;
 				return (rank[a.priority] ?? 99) - (rank[b.priority] ?? 99);
 			});
 			return activities;
