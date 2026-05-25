@@ -70,7 +70,11 @@ class PartyActivityHub {
 		this.$main.on('click', '.nest-complete-btn', function(e) {
 			e.stopPropagation();
 			var $btn = $(this);
-			me.mark_complete($btn.data('todo'), $btn);
+			var todo_name = $btn.data('todo');
+			frappe.confirm(
+				'Mark this task as complete?',
+				function() { me.mark_complete(todo_name, $btn); }
+			);
 		});
 
 		this.$main.on('click', '.nest-reopen-btn', function(e) {
