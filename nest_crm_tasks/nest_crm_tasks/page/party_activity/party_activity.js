@@ -430,7 +430,8 @@ class PartyActivityHub {
 				frappe.show_alert({ message: 'Task marked complete', indicator: 'green' });
 				me.render(me.party_type, me.party_name);
 				// Capture the next follow-up step, chained to the task just closed.
-				me.open_followup_dialog(todo_name);
+				// Compulsory unless the lead is in a terminal status (Lost/Dead).
+				me.open_followup_dialog(todo_name, me.due_required());
 			})
 			.catch(function() {
 				frappe.show_alert({ message: 'Could not update task', indicator: 'red' });
@@ -504,20 +505,27 @@ class PartyActivityHub {
 	// parent_task. Same party link as open_new_task_dialog, plus the parent chain.
 	// -------------------------------------------------------------------------
 
-	open_followup_dialog(parent_todo) {
+	open_followup_dialog(parent_todo, mandatory) {
 		var me = this;
+		var allow_close = false;
 
 		var party_name = (me.party_data
 			&& (me.party_data.lead_name || me.party_data.customer_name)) || me.party_name;
 		var party_label = party_name + ' (' + me.party_type + ')';
 
+		var info = mandatory
+			? '<div class="text-muted" style="margin-bottom:8px;">'
+				+ 'A next step is required before you can close this. Follow-up linked to <strong>'
+				+ frappe.utils.escape_html(party_label) + '</strong>'
+				+ '</div>'
+			: '<div class="text-muted" style="margin-bottom:8px;">'
+				+ 'Follow-up linked to <strong>' + frappe.utils.escape_html(party_label) + '</strong>'
+				+ '</div>';
+
 		var d = new frappe.ui.Dialog({
 			title: 'Add Follow-up Task',
 			fields: [
-				{ fieldtype: 'HTML', fieldname: 'linked_info',
-				  options: '<div class="text-muted" style="margin-bottom:8px;">'
-					+ 'Follow-up linked to <strong>' + frappe.utils.escape_html(party_label) + '</strong>'
-					+ '</div>' },
+				{ fieldtype: 'HTML', fieldname: 'linked_info', options: info },
 				{ fieldname: 'description', fieldtype: 'Small Text', label: 'Description', reqd: 1 },
 				{ fieldname: 'date',        fieldtype: 'Date',       label: 'Next Task Due Date',
 				  default: frappe.datetime.nowdate(), reqd: me.due_required() ? 1 : 0 },
@@ -547,6 +555,7 @@ class PartyActivityHub {
 
 				frappe.db.insert(payload).then(function() {
 					frappe.show_alert({ message: 'Follow-up added', indicator: 'green' });
+					allow_close = true;
 					d.hide();
 					me.render(me.party_type, me.party_name);
 				}).catch(function() {
@@ -557,6 +566,21 @@ class PartyActivityHub {
 		});
 
 		d.show();
+
+		// When compulsory, the only way out is submitting the follow-up:
+		// remove the close (X) and block Esc / backdrop-click dismissal.
+		if (mandatory) {
+			d.$wrapper.find('.modal-header .btn-modal-close').hide();
+			d.$wrapper.on('hide.bs.modal', function(e) {
+				if (!allow_close) {
+					e.preventDefault();
+					frappe.show_alert({
+						message: 'Please capture the next step before closing.',
+						indicator: 'orange'
+					});
+				}
+			});
+		}
 	}
 
 	// -------------------------------------------------------------------------
