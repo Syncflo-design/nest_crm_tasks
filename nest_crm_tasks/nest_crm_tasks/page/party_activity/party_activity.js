@@ -70,11 +70,7 @@ class PartyActivityHub {
 		this.$main.on('click', '.nest-complete-btn', function(e) {
 			e.stopPropagation();
 			var $btn = $(this);
-			var todo_name = $btn.data('todo');
-			frappe.confirm(
-				'Mark this task as complete?',
-				function() { me.mark_complete(todo_name, $btn); }
-			);
+			me.mark_complete($btn.data('todo'), $btn);
 		});
 
 		this.$main.on('click', '.nest-reopen-btn', function(e) {
@@ -429,6 +425,8 @@ class PartyActivityHub {
 			.then(function() {
 				frappe.show_alert({ message: 'Task marked complete', indicator: 'green' });
 				me.render(me.party_type, me.party_name);
+				// Capture the next follow-up step, chained to the task just closed.
+				me.open_followup_dialog(todo_name);
 			})
 			.catch(function() {
 				frappe.show_alert({ message: 'Could not update task', indicator: 'red' });
