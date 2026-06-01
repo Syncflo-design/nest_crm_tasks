@@ -1,0 +1,52 @@
+{
+ "actions": [],
+ "creation": "2026-06-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "followup_section",
+  "require_followup_on_complete",
+  "followup_description"
+ ],
+ "fields": [
+  {
+   "fieldname": "followup_section",
+   "fieldtype": "Section Break",
+   "label": "Follow-up Behaviour"
+  },
+  {
+   "default": "1",
+   "description": "When enabled, completing a task on the Party Activity Hub forces the user to capture a follow-up before closing. When disabled, the follow-up dialog is offered but can be dismissed.",
+   "fieldname": "require_followup_on_complete",
+   "fieldtype": "Check",
+   "label": "Require Follow-up on Complete"
+  },
+  {
+   "fieldname": "followup_description",
+   "fieldtype": "HTML",
+   "options": "<p class=\"text-muted\" style=\"margin-top:8px;\">This controls the Party Activity Hub only. The My Activities page always allows optional follow-up.</p>"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-06-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nest CRM Tasks",
+ "name": "CRM Tasks Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

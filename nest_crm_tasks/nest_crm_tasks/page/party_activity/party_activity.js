@@ -36,10 +36,12 @@ class PartyActivityHub {
 		this.party_type = null;
 		this.party_name = null;
 		this.party_data = null;
+		this.require_followup = true;  // default until settings load
 
 		this.setup_page_actions();
 		this.bind_table_events();
 		this.load_from_route();
+		this.load_settings();
 	}
 
 	setup_page_actions() {
@@ -95,6 +97,19 @@ class PartyActivityHub {
 		this.$main.on('click', '.nest-followup-btn', function(e) {
 			e.stopPropagation();
 			me.open_followup_dialog($(this).data('todo'));
+		});
+	}
+
+	load_settings() {
+		var me = this;
+		frappe.call({
+			method: 'nest_crm_tasks.nest_crm_tasks.api.get_crm_tasks_settings',
+			async: true,
+			callback: function(r) {
+				if (r && r.message) {
+					me.require_followup = r.message.require_followup_on_complete;
+				}
+			}
 		});
 	}
 
@@ -429,9 +444,10 @@ class PartyActivityHub {
 			.then(function() {
 				frappe.show_alert({ message: 'Task marked complete', indicator: 'green' });
 				me.render(me.party_type, me.party_name);
-				// Capture the next follow-up step, chained to the task just closed.
-				// Compulsory unless the lead is in a terminal status (Lost/Dead).
-				me.open_followup_dialog(todo_name, me.due_required());
+				// Offer follow-up dialog. Mandatory only if the setting is on
+				// AND the party isn't in a terminal status.
+				var mandatory = me.require_followup && me.due_required();
+				me.open_followup_dialog(todo_name, mandatory);
 			})
 			.catch(function() {
 				frappe.show_alert({ message: 'Could not update task', indicator: 'red' });
