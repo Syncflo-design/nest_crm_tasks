@@ -11,6 +11,10 @@ fixtures = [
     {
         "dt": "Client Script",
         "filters": [["name", "like", "nest-crm%"]]
+    },
+    {
+        "dt": "Custom Field",
+        "filters": [["name", "in", ["ToDo-task_type", "ToDo-parent_task"]]]
     }
 ]
 
