@@ -1,7 +1,7 @@
 // nest_crm_tasks — My Activities
 // Custom replacement for /desk/todo. We control the rendering, so click handling works.
 // Each Lead- or Customer-linked row gets a clickable party badge that opens
-// /app/party-activity/<party_type>/<party_name>.
+// /desk/party-activity/<party_type>/<party_name>.
 
 frappe.pages['my-activities'].on_page_load = function(wrapper) {
 	var page = frappe.ui.make_app_page({
@@ -354,7 +354,7 @@ class MyActivities {
 			if ((t.reference_type === 'Lead' || t.reference_type === 'Customer') && t.reference_name) {
 				var display = t._ref_display || t.reference_name;
 				var icon = t.reference_type === 'Lead' ? 'fa-user' : 'fa-building';
-				var hub_url = '/app/party-activity/'
+				var hub_url = '/desk/party-activity/'
 					+ encodeURIComponent(t.reference_type) + '/'
 					+ encodeURIComponent(t.reference_name);
 				ref_label = '<a class="nest-party-badge"'

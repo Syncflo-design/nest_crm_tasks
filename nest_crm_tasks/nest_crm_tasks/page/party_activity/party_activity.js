@@ -1,9 +1,9 @@
 // nest_crm_tasks — Party Activity Hub
-// Page wiring: /app/party-activity/<party_type>/<party_name>
+// Page wiring: /desk/party-activity/<party_type>/<party_name>
 //   party_type ∈ {Lead, Customer}
 //   party_name = the linked doctype's name
 //
-// Generalised from the previous /app/lead-activity page so both Leads (all
+// Generalised from the previous /desk/lead-activity page so both Leads (all
 // statuses) and Customers go through the same screen. ToDo's reference_type
 // is generic — the filter just passes whatever party_type the URL carries.
 
@@ -124,7 +124,7 @@ class PartyActivityHub {
 	}
 
 	// -------------------------------------------------------------------------
-	// Routing — /app/party-activity/<party_type>/<party_name>
+	// Routing — /desk/party-activity/<party_type>/<party_name>
 	// -------------------------------------------------------------------------
 
 	load_from_route() {
@@ -665,7 +665,7 @@ class PartyActivityHub {
 			'<div class="text-muted text-center" style="padding:60px;">'
 			+ '<div style="font-size:48px;margin-bottom:16px;">&#128203;</div>'
 			+ '<p>No party selected.</p>'
-			+ '<p>Open from <a href="/app/my-activities">My Activities</a> — click the Lead or Customer pill on any task row.</p>'
+			+ '<p>Open from <a href="/desk/my-activities">My Activities</a> — click the Lead or Customer pill on any task row.</p>'
 			+ '</div>'
 		);
 		this.page.set_title('Party Activity Hub');
