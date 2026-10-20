@@ -98,6 +98,21 @@ class PartyActivityHub {
 			e.stopPropagation();
 			me.open_followup_dialog($(this).data('todo'));
 		});
+
+		this.$main.on('click', '.nest-delete-btn', function(e) {
+			e.stopPropagation();
+			var todo_name = $(this).data('todo');
+			frappe.confirm('Delete this activity? This cannot be undone.', function() {
+				frappe.db.delete_doc('ToDo', todo_name)
+					.then(function() {
+						frappe.show_alert({ message: 'Activity deleted', indicator: 'green' });
+						me.render(me.party_type, me.party_name);
+					})
+					.catch(function() {
+						frappe.show_alert({ message: 'Could not delete activity', indicator: 'red' });
+					});
+			});
+		});
 	}
 
 	load_settings() {
@@ -401,7 +416,13 @@ class PartyActivityHub {
 					+ safe_name + '" title="Edit" aria-label="Edit" style="margin-right:4px;">'
 					+ '<i class="fa fa-pencil"></i></button>'
 				: '';
-			action_btn = followup_btn + edit_btn + action_btn;
+			// Delete: for activities captured in error. Creator or System Manager only.
+			var delete_btn = (a.owner === frappe.session.user || frappe.user.has_role('System Manager'))
+				? '<button class="btn btn-xs btn-default nest-delete-btn" data-todo="'
+					+ safe_name + '" title="Delete" aria-label="Delete" style="margin-left:4px;">'
+					+ '<i class="fa fa-trash"></i></button>'
+				: '';
+			action_btn = followup_btn + edit_btn + action_btn + delete_btn;
 
 			return '<tr data-todo="' + safe_name + '">'
 				+ '<td style="white-space:normal;word-wrap:break-word;max-width:480px;line-height:1.4;">' + desc + '</td>'
@@ -422,7 +443,7 @@ class PartyActivityHub {
 			+ '<th style="width:160px;">Assigned To</th>'
 			+ '<th style="width:50px;text-align:center;" title="Priority">Pri</th>'
 			+ '<th style="width:50px;text-align:center;" title="Status">Sts</th>'
-			+ '<th style="width:110px;text-align:center;">Action</th>'
+			+ '<th style="width:140px;text-align:center;">Action</th>'
 			+ '</tr>'
 			+ '</thead>'
 			+ '<tbody>' + rows_html + '</tbody>'

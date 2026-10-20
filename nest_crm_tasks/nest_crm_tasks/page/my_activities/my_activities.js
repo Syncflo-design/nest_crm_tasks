@@ -169,6 +169,11 @@ class MyActivities {
 			me.set_status($(this).data('todo'), 'Open', $(this));
 		});
 
+		this.$main.on('click', '.nest-delete-btn', function(e) {
+			e.stopPropagation();
+			nest_delete_activity($(this).data('todo'), function() { me.refresh(); });
+		});
+
 		this.$main.on('click', '.nest-followup-btn', function(e) {
 			e.stopPropagation();
 			var $b = $(this);
@@ -427,13 +432,20 @@ class MyActivities {
 					+ '<i class="fa fa-reply"></i></button>';
 			}
 
+			// Delete: for activities captured in error. Creator or System Manager only.
+			var delete_btn = nest_can_delete_activity(t)
+				? '<button class="btn btn-xs btn-default nest-delete-btn" data-todo="'
+					+ safe_name + '" title="Delete" aria-label="Delete" style="margin-left:4px;">'
+					+ '<i class="fa fa-trash"></i></button>'
+				: '';
+
 			return '<tr class="nest-task-row" data-todo="' + safe_name + '" style="cursor:pointer;">'
 				+ first_cell
 				+ '<td style="white-space:nowrap;">' + date_str + '</td>'
 				+ '<td>' + esc(assigned_to) + '</td>'
 				+ '<td style="text-align:center;">' + priority_badge + '</td>'
 				+ '<td style="text-align:center;">' + status_badge + '</td>'
-				+ '<td style="white-space:nowrap;text-align:center;">' + followup_btn + action_btn + '</td>'
+				+ '<td style="white-space:nowrap;text-align:center;">' + followup_btn + action_btn + delete_btn + '</td>'
 				+ '</tr>';
 		}).join('');
 
@@ -446,7 +458,7 @@ class MyActivities {
 			+ '<th style="width:170px;">Assigned To</th>'
 			+ '<th style="width:50px;text-align:center;" title="Priority">Pri</th>'
 			+ '<th style="width:50px;text-align:center;" title="Status">Sts</th>'
-			+ '<th style="width:90px;text-align:center;">Action</th>'
+			+ '<th style="width:110px;text-align:center;">Action</th>'
 			+ '</tr>'
 			+ '</thead>'
 			+ '<tbody>' + rows + '</tbody>'
@@ -538,4 +550,22 @@ class MyActivities {
 
 		d.show();
 	}
+}
+
+// Delete an activity (ToDo) captured in error. Shared by the row Delete button.
+function nest_can_delete_activity(t) {
+	return t.owner === frappe.session.user || frappe.user.has_role('System Manager');
+}
+
+function nest_delete_activity(todo_name, on_done) {
+	frappe.confirm('Delete this activity? This cannot be undone.', function() {
+		frappe.db.delete_doc('ToDo', todo_name)
+			.then(function() {
+				frappe.show_alert({ message: 'Activity deleted', indicator: 'green' });
+				if (on_done) on_done();
+			})
+			.catch(function() {
+				frappe.show_alert({ message: 'Could not delete activity', indicator: 'red' });
+			});
+	});
 }
